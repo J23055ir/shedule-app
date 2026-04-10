@@ -425,32 +425,22 @@
       </section>
 
       <aside class="panel">
-        <h2 class="side-title">日付設定</h2>
+        <h2 class="side-title">× 管理</h2>
         <div id="selectedDateText" class="selected-date">日付を選んでください</div>
 
-        <label for="titleInput">予定タイトル</label>
-        <input id="titleInput" type="text" placeholder="例：バイト、会議、課題提出" />
-
-        <label for="memoInput">メモ</label>
-        <textarea id="memoInput" placeholder="この日の予定や補足を書けます"></textarea>
-
-        <div class="checkbox-row">
-          <input id="blockedInput" type="checkbox" />
-          <label for="blockedInput" style="margin:0;">この日に × を付ける</label>
-        </div>
-
         <div class="action-row">
-          <button id="saveBtn">保存</button>
-          <button id="clearBtn" class="secondary">入力をクリア</button>
-          <button id="deleteBtn" class="danger">この日の記録を削除</button>
+          <button id="markBlockedBtn">選択した日に × を付ける</button>
+          <button id="unmarkBlockedBtn" class="secondary">選択した日の × を外す</button>
+          <button id="clearSelectionBtn" class="danger">選択をクリア</button>
         </div>
 
         <div class="info-box">
           <strong>使い方</strong><br />
-          1. カレンダーの日付をクリックします。<br />
-          2. 必要ならタイトルやメモを入力します。<br />
-          3. 予定を入れられない日は「×を付ける」にチェックします。<br />
-          4. 保存するとブラウザに記録されます。
+          1. カレンダーの日付をタップまたはクリックします。<br />
+          2. 複数の日付を選べます。<br />
+          3. 「選択した日に × を付ける」でまとめて登録できます。<br />
+          4. 「選択した日の × を外す」でまとめて解除できます。<br />
+          5. データは共有カレンダーとして保存されます。
         </div>
       </aside>
     </div>
@@ -462,24 +452,20 @@
       getFirestore,
       doc,
       setDoc,
-      getDoc,
       deleteDoc,
+      writeBatch,
       onSnapshot,
       collection
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    /*
-      ここに Firebase の設定を貼り付けて使ってください。
-      Firebase コンソールでプロジェクト作成後、Web アプリを登録すると表示されます。
-    */
     const firebaseConfig = {
-    apiKey: "AIzaSyBvO5emsGjVXNb-3LD_2fdKekveucYNvTY",
-    authDomain: "schedule-a739b.firebaseapp.com",
-    projectId: "schedule-a739b",
-    storageBucket: "schedule-a739b.firebasestorage.app",
-    messagingSenderId: "1024570404644",
-    appId: "1:1024570404644:web:14d2f6d44b462147034db1",
-    measurementId: "G-PTPQ4R5WCC"
+      apiKey: "AIzaSyBvO5emsGjVXNb-3LD_2fdKekveucYNvTY",
+      authDomain: "schedule-a739b.firebaseapp.com",
+      projectId: "schedule-a739b",
+      storageBucket: "schedule-a739b.firebasestorage.app",
+      messagingSenderId: "1024570404644",
+      appId: "1:1024570404644:web:14d2f6d44b462147034db1",
+      measurementId: "G-PTPQ4R5WCC"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -488,19 +474,16 @@
     const monthLabel = document.getElementById("monthLabel");
     const calendarGrid = document.getElementById("calendarGrid");
     const selectedDateText = document.getElementById("selectedDateText");
-    const titleInput = document.getElementById("titleInput");
-    const memoInput = document.getElementById("memoInput");
-    const blockedInput = document.getElementById("blockedInput");
 
     const prevMonthBtn = document.getElementById("prevMonth");
     const nextMonthBtn = document.getElementById("nextMonth");
     const todayBtn = document.getElementById("todayBtn");
-    const saveBtn = document.getElementById("saveBtn");
-    const clearBtn = document.getElementById("clearBtn");
-    const deleteBtn = document.getElementById("deleteBtn");
+    const markBlockedBtn = document.getElementById("markBlockedBtn");
+    const unmarkBlockedBtn = document.getElementById("unmarkBlockedBtn");
+    const clearSelectionBtn = document.getElementById("clearSelectionBtn");
 
     let currentDate = new Date();
-    let selectedDateKey = null;
+    let selectedDateKeys = [];
     let scheduleData = {};
 
     function formatDateKey(date) {
@@ -513,6 +496,31 @@
     function formatDisplayDate(dateKey) {
       const [y, m, d] = dateKey.split("-");
       return `${y}年${Number(m)}月${Number(d)}日`;
+    }
+
+    function updateSelectedDateText() {
+      if (selectedDateKeys.length === 0) {
+        selectedDateText.textContent = "日付を選んでください";
+        return;
+      }
+
+      const sorted = [...selectedDateKeys].sort();
+      if (sorted.length === 1) {
+        selectedDateText.textContent = `${formatDisplayDate(sorted[0])} を選択中`;
+        return;
+      }
+
+      selectedDateText.textContent = `${sorted.length}日選択中：${formatDisplayDate(sorted[0])} 〜`;
+    }
+
+    function toggleSelectedDate(dateKey) {
+      if (selectedDateKeys.includes(dateKey)) {
+        selectedDateKeys = selectedDateKeys.filter((key) => key !== dateKey);
+      } else {
+        selectedDateKeys = [...selectedDateKeys, dateKey];
+      }
+      updateSelectedDateText();
+      renderCalendar();
     }
 
     function renderCalendar() {
@@ -555,7 +563,7 @@
           cell.classList.add("other-month");
         }
 
-        if (selectedDateKey === dateKey) {
+        if (selectedDateKeys.includes(dateKey)) {
           cell.classList.add("selected");
         }
 
@@ -568,13 +576,6 @@
         dayNumber.textContent = cellDate.getDate();
         cell.appendChild(dayNumber);
 
-        if (dayData && dayData.title) {
-          const note = document.createElement("div");
-          note.className = "mini-note";
-          note.textContent = dayData.title;
-          cell.appendChild(note);
-        }
-
         if (dayData && dayData.blocked) {
           const xMark = document.createElement("div");
           xMark.className = "x-mark";
@@ -583,76 +584,60 @@
         }
 
         cell.addEventListener("click", () => {
-          selectedDateKey = dateKey;
-          showSelectedDate();
-          renderCalendar();
+          toggleSelectedDate(dateKey);
         });
 
         calendarGrid.appendChild(cell);
       }
     }
 
-    function showSelectedDate() {
-      if (!selectedDateKey) {
-        selectedDateText.textContent = "日付を選んでください";
-        titleInput.value = "";
-        memoInput.value = "";
-        blockedInput.checked = false;
-        return;
-      }
-
-      selectedDateText.textContent = formatDisplayDate(selectedDateKey);
-      const dayData = scheduleData[selectedDateKey] || { title: "", memo: "", blocked: false };
-      titleInput.value = dayData.title || "";
-      memoInput.value = dayData.memo || "";
-      blockedInput.checked = !!dayData.blocked;
-    }
-
-    async function saveSelectedDate() {
-      if (!selectedDateKey) {
-        alert("先に日付を選んでください。");
-        return;
-      }
-
-      const payload = {
-        title: titleInput.value.trim(),
-        memo: memoInput.value.trim(),
-        blocked: blockedInput.checked,
-        updatedAt: new Date().toISOString()
-      };
-
-      const hasContent = payload.title || payload.memo || payload.blocked;
-      const ref = doc(db, "shared_schedule", selectedDateKey);
-
-      try {
-        if (hasContent) {
-          await setDoc(ref, payload);
-        } else {
-          await deleteDoc(ref);
-        }
-        alert("保存しました。");
-      } catch (error) {
-        console.error(error);
-        alert("保存に失敗しました。Firebase設定を確認してください。");
-      }
-    }
-
-    async function deleteSelectedDate() {
-      if (!selectedDateKey) {
+    async function markSelectedDatesAsBlocked() {
+      if (selectedDateKeys.length === 0) {
         alert("先に日付を選んでください。");
         return;
       }
 
       try {
-        await deleteDoc(doc(db, "shared_schedule", selectedDateKey));
-        titleInput.value = "";
-        memoInput.value = "";
-        blockedInput.checked = false;
-        alert("削除しました。");
+        const batch = writeBatch(db);
+        selectedDateKeys.forEach((dateKey) => {
+          const ref = doc(db, "shared_schedule", dateKey);
+          batch.set(ref, {
+            blocked: true,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        });
+        await batch.commit();
+        alert("選択した日に × を付けました。");
       } catch (error) {
         console.error(error);
-        alert("削除に失敗しました。");
+        alert("保存に失敗しました。");
       }
+    }
+
+    async function unmarkSelectedDatesAsBlocked() {
+      if (selectedDateKeys.length === 0) {
+        alert("先に日付を選んでください。");
+        return;
+      }
+
+      try {
+        const batch = writeBatch(db);
+        selectedDateKeys.forEach((dateKey) => {
+          const ref = doc(db, "shared_schedule", dateKey);
+          batch.delete(ref);
+        });
+        await batch.commit();
+        alert("選択した日の × を外しました。");
+      } catch (error) {
+        console.error(error);
+        alert("解除に失敗しました。");
+      }
+    }
+
+    function clearSelection() {
+      selectedDateKeys = [];
+      updateSelectedDateText();
+      renderCalendar();
     }
 
     function startRealtimeSync() {
@@ -664,22 +649,16 @@
         });
         scheduleData = nextData;
         renderCalendar();
-        showSelectedDate();
+        updateSelectedDateText();
       }, (error) => {
         console.error(error);
         alert("リアルタイム同期に失敗しました。Firebase設定または権限を確認してください。");
       });
     }
 
-    saveBtn.addEventListener("click", saveSelectedDate);
-
-    clearBtn.addEventListener("click", () => {
-      titleInput.value = "";
-      memoInput.value = "";
-      blockedInput.checked = false;
-    });
-
-    deleteBtn.addEventListener("click", deleteSelectedDate);
+    markBlockedBtn.addEventListener("click", markSelectedDatesAsBlocked);
+    unmarkBlockedBtn.addEventListener("click", unmarkSelectedDatesAsBlocked);
+    clearSelectionBtn.addEventListener("click", clearSelection);
 
     prevMonthBtn.addEventListener("click", () => {
       currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
@@ -697,7 +676,7 @@
     });
 
     renderCalendar();
-    showSelectedDate();
+    updateSelectedDateText();
     startRealtimeSync();
   </script>
 </body>
