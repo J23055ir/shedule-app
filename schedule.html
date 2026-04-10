@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>簡易スケジュール管理アプリ</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+      background: #f5f7fb;
+      color: #222;
+    }
+
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+
+    .title {
+      margin: 0 0 14px;
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      padding: 14px;
+    }
+
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .calendar-header h2 {
+      margin: 0;
+      font-size: 20px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: #3b82f6;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      min-height: 44px;
+      flex: 1;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    button.secondary {
+      background: #64748b;
+    }
+
+    button.danger {
+      background: #ef4444;
+    }
+
+    .weekday-row,
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+
+    .weekday {
+      text-align: center;
+      font-weight: 700;
+      padding: 8px 0;
+      color: #475569;
+      font-size: 13px;
+    }
+
+    .weekday.sun {
+      color: #dc2626;
+    }
+
+    .weekday.sat {
+      color: #2563eb;
+    }
+
+    .day-cell {
+      min-height: 92px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      cursor: pointer;
+      transition: 0.2s;
+      position: relative;
+      touch-action: manipulation;
+    }
+
+    .day-cell:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .day-cell.other-month {
+      opacity: 0.35;
+    }
+
+    .day-cell.selected {
+      outline: 3px solid #60a5fa;
+      background: #eff6ff;
+    }
+
+    .day-cell.blocked {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+    }
+
+    .day-number {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .x-mark {
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 700;
+      color: #dc2626;
+      text-align: center;
+      margin-top: auto;
+      margin-bottom: auto;
+    }
+
+    .mini-note {
+      font-size: 11px;
+      color: #334155;
+      background: #e2e8f0;
+      border-radius: 8px;
+      padding: 4px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .side-title {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 18px;
+    }
+
+    .selected-date {
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #1d4ed8;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 16px;
+      margin-bottom: 12px;
+      font-family: inherit;
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .checkbox-row input {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .action-row button {
+      flex: 1 1 100%;
+    }
+
+    .info-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-box {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .box-normal {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+    }
+
+    .box-blocked {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+    }
+
+    .box-selected {
+      background: #eff6ff;
+      border: 1px solid #60a5fa;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        padding: 12px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        background: #eef2f7;
+      }
+
+      .app {
+        padding: 8px;
+      }
+
+      .title {
+        font-size: 20px;
+        margin-bottom: 10px;
+      }
+
+      .panel {
+        border-radius: 14px;
+        padding: 10px;
+      }
+
+      .calendar-header {
+        margin-bottom: 10px;
+      }
+
+      .calendar-header h2 {
+        font-size: 18px;
+        order: -1;
+      }
+
+      .nav-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+      }
+
+      button {
+        padding: 10px 8px;
+        font-size: 13px;
+        min-height: 42px;
+      }
+
+      .weekday-row,
+      .calendar-grid {
+        gap: 4px;
+      }
+
+      .weekday {
+        font-size: 11px;
+        padding: 6px 0;
+      }
+
+      .day-cell {
+        min-height: 72px;
+        padding: 6px;
+        border-radius: 10px;
+        gap: 4px;
+      }
+
+      .day-number {
+        font-size: 13px;
+      }
+
+      .mini-note {
+        font-size: 10px;
+        padding: 3px 5px;
+      }
+
+      .x-mark {
+        font-size: 22px;
+      }
+
+      .side-title {
+        font-size: 17px;
+      }
+
+      .selected-date {
+        font-size: 14px;
+      }
+
+      label {
+        font-size: 13px;
+      }
+
+      input[type="text"],
+      textarea {
+        font-size: 16px;
+        padding: 10px;
+      }
+
+      .info-box {
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .legend {
+        font-size: 11px;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1 class="title">簡易スケジュール管理アプリ</h1>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="calendar-header">
+          <div class="nav-buttons">
+            <button id="prevMonth">← 前の月</button>
+            <button id="todayBtn" class="secondary">今月へ</button>
+            <button id="nextMonth">次の月 →</button>
+          </div>
+          <h2 id="monthLabel"></h2>
+        </div>
+
+        <div class="weekday-row">
+          <div class="weekday sun">日</div>
+          <div class="weekday">月</div>
+          <div class="weekday">火</div>
+          <div class="weekday">水</div>
+          <div class="weekday">木</div>
+          <div class="weekday">金</div>
+          <div class="weekday sat">土</div>
+        </div>
+
+        <div id="calendarGrid" class="calendar-grid"></div>
+
+        <div class="legend">
+          <span><i class="legend-box box-normal"></i>通常日</span>
+          <span><i class="legend-box box-blocked"></i>× を付けた日</span>
+          <span><i class="legend-box box-selected"></i>選択中</span>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h2 class="side-title">日付設定</h2>
+        <div id="selectedDateText" class="selected-date">日付を選んでください</div>
+
+        <label for="titleInput">予定タイトル</label>
+        <input id="titleInput" type="text" placeholder="例：バイト、会議、課題提出" />
+
+        <label for="memoInput">メモ</label>
+        <textarea id="memoInput" placeholder="この日の予定や補足を書けます"></textarea>
+
+        <div class="checkbox-row">
+          <input id="blockedInput" type="checkbox" />
+          <label for="blockedInput" style="margin:0;">この日に × を付ける</label>
+        </div>
+
+        <div class="action-row">
+          <button id="saveBtn">保存</button>
+          <button id="clearBtn" class="secondary">入力をクリア</button>
+          <button id="deleteBtn" class="danger">この日の記録を削除</button>
+        </div>
+
+        <div class="info-box">
+          <strong>使い方</strong><br />
+          1. カレンダーの日付をクリックします。<br />
+          2. 必要ならタイトルやメモを入力します。<br />
+          3. 予定を入れられない日は「×を付ける」にチェックします。<br />
+          4. 保存するとブラウザに記録されます。
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "simple_schedule_calendar_data";
+
+    const monthLabel = document.getElementById("monthLabel");
+    const calendarGrid = document.getElementById("calendarGrid");
+    const selectedDateText = document.getElementById("selectedDateText");
+    const titleInput = document.getElementById("titleInput");
+    const memoInput = document.getElementById("memoInput");
+    const blockedInput = document.getElementById("blockedInput");
+
+    const prevMonthBtn = document.getElementById("prevMonth");
+    const nextMonthBtn = document.getElementById("nextMonth");
+    const todayBtn = document.getElementById("todayBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const deleteBtn = document.getElementById("deleteBtn");
+
+    let currentDate = new Date();
+    let selectedDateKey = null;
+    let scheduleData = loadData();
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (error) {
+        console.error("データ読み込み失敗:", error);
+        return {};
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(scheduleData));
+    }
+
+    function formatDateKey(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatDisplayDate(dateKey) {
+      const [y, m, d] = dateKey.split("-");
+      return `${y}年${Number(m)}月${Number(d)}日`;
+    }
+
+    function renderCalendar() {
+      calendarGrid.innerHTML = "";
+
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      monthLabel.textContent = `${year}年 ${month + 1}月`;
+
+      const firstDay = new Date(year, month, 1);
+      const startDay = firstDay.getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+      const totalCells = 42;
+
+      for (let i = 0; i < totalCells; i++) {
+        const cell = document.createElement("div");
+        cell.className = "day-cell";
+
+        let cellDate;
+        let isOtherMonth = false;
+
+        if (i < startDay) {
+          const day = daysInPrevMonth - startDay + i + 1;
+          cellDate = new Date(year, month - 1, day);
+          isOtherMonth = true;
+        } else if (i >= startDay + daysInMonth) {
+          const day = i - (startDay + daysInMonth) + 1;
+          cellDate = new Date(year, month + 1, day);
+          isOtherMonth = true;
+        } else {
+          const day = i - startDay + 1;
+          cellDate = new Date(year, month, day);
+        }
+
+        const dateKey = formatDateKey(cellDate);
+        const dayData = scheduleData[dateKey];
+
+        if (isOtherMonth) {
+          cell.classList.add("other-month");
+        }
+
+        if (selectedDateKey === dateKey) {
+          cell.classList.add("selected");
+        }
+
+        if (dayData && dayData.blocked) {
+          cell.classList.add("blocked");
+        }
+
+        const dayNumber = document.createElement("div");
+        dayNumber.className = "day-number";
+        dayNumber.textContent = cellDate.getDate();
+        cell.appendChild(dayNumber);
+
+        if (dayData && dayData.title) {
+          const note = document.createElement("div");
+          note.className = "mini-note";
+          note.textContent = dayData.title;
+          cell.appendChild(note);
+        }
+
+        if (dayData && dayData.blocked) {
+          const xMark = document.createElement("div");
+          xMark.className = "x-mark";
+          xMark.textContent = "×";
+          cell.appendChild(xMark);
+        }
+
+        cell.addEventListener("click", () => {
+          selectedDateKey = dateKey;
+          showSelectedDate();
+          renderCalendar();
+        });
+
+        calendarGrid.appendChild(cell);
+      }
+    }
+
+    function showSelectedDate() {
+      if (!selectedDateKey) {
+        selectedDateText.textContent = "日付を選んでください";
+        titleInput.value = "";
+        memoInput.value = "";
+        blockedInput.checked = false;
+        return;
+      }
+
+      selectedDateText.textContent = formatDisplayDate(selectedDateKey);
+      const dayData = scheduleData[selectedDateKey] || { title: "", memo: "", blocked: false };
+      titleInput.value = dayData.title || "";
+      memoInput.value = dayData.memo || "";
+      blockedInput.checked = !!dayData.blocked;
+    }
+
+    saveBtn.addEventListener("click", () => {
+      if (!selectedDateKey) {
+        alert("先に日付を選んでください。");
+        return;
+      }
+
+      scheduleData[selectedDateKey] = {
+        title: titleInput.value.trim(),
+        memo: memoInput.value.trim(),
+        blocked: blockedInput.checked,
+      };
+
+      if (!scheduleData[selectedDateKey].title && !scheduleData[selectedDateKey].memo && !scheduleData[selectedDateKey].blocked) {
+        delete scheduleData[selectedDateKey];
+      }
+
+      saveData();
+      renderCalendar();
+      alert("保存しました。");
+    });
+
+    clearBtn.addEventListener("click", () => {
+      titleInput.value = "";
+      memoInput.value = "";
+      blockedInput.checked = false;
+    });
+
+    deleteBtn.addEventListener("click", () => {
+      if (!selectedDateKey) {
+        alert("先に日付を選んでください。");
+        return;
+      }
+
+      if (!scheduleData[selectedDateKey]) {
+        alert("この日に保存された記録はありません。");
+        return;
+      }
+
+      delete scheduleData[selectedDateKey];
+      saveData();
+      showSelectedDate();
+      renderCalendar();
+      alert("削除しました。");
+    });
+
+    prevMonthBtn.addEventListener("click", () => {
+      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+      renderCalendar();
+    });
+
+    nextMonthBtn.addEventListener("click", () => {
+      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+      renderCalendar();
+    });
+
+    todayBtn.addEventListener("click", () => {
+      currentDate = new Date();
+      renderCalendar();
+    });
+
+    renderCalendar();
+    showSelectedDate();
+  </script>
+</body>
+</html>
